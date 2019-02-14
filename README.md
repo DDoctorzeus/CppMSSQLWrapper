@@ -7,3 +7,4 @@ Note that this is only a wrapper and you need to download msodbcsql.
 
 I might add some formal documentation for this at some point (depending on demand) however for now look at the main.cpp in the Example folder.
 
+I may make also make a c version of it later.
