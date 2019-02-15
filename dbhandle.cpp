@@ -1,5 +1,11 @@
 #include "dbhandle.h"
 
+/*CopyLeft Techtonic Software 2018 - http://www.techtonicsoftware.com/
+ * This Program Is Lisenced Under GNU V3 and comes with ABSOLUTELY NO WARRANTY. 
+ * You may distribute, modify and run it however you must not claim it as your own nor sublisence it.
+ * Any distribution must include the readme file.
+*/
+
 using namespace TechtonicSoftware;
 using namespace SQLHelper;
 
