@@ -88,9 +88,11 @@ private:
   void InitAll();
   void FreeAll();
   void InitStatement();
-  void FreeStatement();
+  void FreeStatement(std::vector<SQLCHAR*> *resultRow);
 
 public:
+  static void DeleteParams(std::vector<SQLParam *> params);
+
   std::vector<SQLError *> errors;
 
   DBHandle(const char *connectionStr);

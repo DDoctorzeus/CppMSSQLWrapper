@@ -88,11 +88,14 @@ void SQLQueryData::SetColumnNames(std::vector<SQLCHAR *> columnNames)
 
     for (unsigned i = 0; i < numCols; i++)
     {
-        //Make to Lower
-        newColName = reinterpret_cast<char *>(columnNames[i]);
-        CharArrToLower(newColName);
+        if (columnNames[i] != nullptr)
+        {
+            //Make to Lower
+            newColName = reinterpret_cast<char *>(columnNames[i]);
+            CharArrToLower(newColName);
 
-        newColumnNames.push_back(const_cast<const char *>(newColName));
+            newColumnNames.push_back(const_cast<const char *>(newColName));
+        }
     }
 
     this->columnNames = newColumnNames;
@@ -110,11 +113,9 @@ void SQLQueryData::AddRow(std::vector<SQLCHAR *> row)
     //Create local pointers
     for (unsigned i = 0; i < rowSize; i++)
     {
-        //Work out val size
-        valueSize = (strlen(oldVal) + 1) * sizeof(char *);
-
         //Cast and assign
         oldVal = reinterpret_cast<char *>(row[i]);
+        valueSize = (strlen(oldVal) + 1) * sizeof(char *);
         newValue = (char *)malloc(valueSize);
 
         //Copy into new variable
@@ -365,7 +366,7 @@ void DBHandle::InitStatement()
     }
 }
 
-void DBHandle::FreeStatement()
+void DBHandle::FreeStatement(std::vector<SQLCHAR*> *resultRow)
 {
     // Statement
     if (statementHandle != SQL_NULL_HSTMT)
@@ -373,11 +374,27 @@ void DBHandle::FreeStatement()
         SQLFreeHandle(SQL_HANDLE_STMT, statementHandle);
         this->statementHandle = SQL_NULL_HSTMT;
     }
+
+    if (resultRow != nullptr)
+    {
+        for (unsigned i = 0; i < resultRow->size(); i++)
+            free(((std::vector<SQLCHAR*>)*resultRow)[i]);
+        resultRow->clear();
+    }
+}
+
+void DBHandle::DeleteParams(std::vector<SQLParam *> params)
+{
+    for (unsigned i = 0; i < params.size(); i++)
+    {
+        delete params[i];
+    }
 }
 
 DBHandle::DBHandle(const char *connectionStr)
 {
     this->connectionStr = connectionStr;
+
     InitAll();
 }
 
@@ -423,7 +440,7 @@ bool DBHandle::SendQuery(const char *query, std::vector<SQLParam *> sqlParams, S
 
         if (ErrorOccured(returnCode, (char *)"SQLBindParameter()", statementHandle, SQL_HANDLE_STMT, true))
         {
-            FreeStatement();
+            FreeStatement(nullptr);
             return false;
         }
     }
@@ -432,7 +449,7 @@ bool DBHandle::SendQuery(const char *query, std::vector<SQLParam *> sqlParams, S
     returnCode = SQLPrepare(statementHandle, (SQLCHAR *)query, statementLength);
     if (ErrorOccured(returnCode, (char *)"SQLPrepare()", statementHandle, SQL_HANDLE_STMT, true))
     {
-        FreeStatement();
+        FreeStatement(nullptr);
         return false;
     }
 
@@ -440,7 +457,7 @@ bool DBHandle::SendQuery(const char *query, std::vector<SQLParam *> sqlParams, S
     SQLExecDirect(this->statementHandle, (SQLCHAR *)query, statementLength);
     if (ErrorOccured(returnCode, (char *)"SQLExecDirect()", statementHandle, SQL_HANDLE_STMT, true))
     {
-        FreeStatement();
+        FreeStatement(nullptr);
         return false;
     }
 
@@ -463,7 +480,7 @@ bool DBHandle::SendQuery(const char *query, std::vector<SQLParam *> sqlParams, S
             returnCode = SQLBindCol(statementHandle, i, SQL_C_CHAR, currentResult, RESULT_LEN, (SQLLEN *)&numColumns_LeftOver);
             if (ErrorOccured(returnCode, (char *)"SQLBindCol()", statementHandle, SQL_HANDLE_STMT, true))
             {
-                FreeStatement();
+                FreeStatement(&resultRow);
                 return false;
             }
             else
@@ -472,7 +489,7 @@ bool DBHandle::SendQuery(const char *query, std::vector<SQLParam *> sqlParams, S
             //Get col name/s
             returnCode = SQLColAttribute(statementHandle, (SQLUSMALLINT)i, SQL_DESC_LABEL, currentColName, currentColNameSize, &bufLenUsed, NULL);
             if (ErrorOccured(returnCode, (char *)"SQLColAttribute(SQL_DESC_LABEL)", statementHandle, SQL_HANDLE_STMT, true))
-                colNames.push_back((SQLCHAR *)"");
+                colNames.push_back(nullptr);
             else
                 colNames.push_back((SQLCHAR *)currentColName);
         }
@@ -498,7 +515,7 @@ bool DBHandle::SendQuery(const char *query, std::vector<SQLParam *> sqlParams, S
                 if (returnCode != SQL_NO_DATA)
                 {
                     ErrorOccured(returnCode, (char *)"SQLFetch()", statementHandle, SQL_HANDLE_STMT, true);
-                    FreeStatement();
+                    FreeStatement(&resultRow);
                     return false;
                 }
                 execOngoing = false;
@@ -506,7 +523,16 @@ bool DBHandle::SendQuery(const char *query, std::vector<SQLParam *> sqlParams, S
         }
     }
 
-    FreeStatement();
+    //Clear Up SQLParams
+    /*
+    for (unsigned i = 0; i < sqlparams_Size; i++)
+    {
+        currentParam = sqlParams[i];
+        delete currentParam;
+    }
+    */
+
+    FreeStatement(&resultRow);
     return true;
 }
 
